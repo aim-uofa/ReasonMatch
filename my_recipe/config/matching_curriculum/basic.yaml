@@ -1,0 +1,126 @@
+# Basic matching curriculum covering image-only → hybrid → distractor stages.
+# Referenced from `dynamic_buffer.yaml` via Hydra defaults.
+#
+# Top-level keys:
+#   enable         – master switch for the curriculum controller
+#   metric_window  – number of recent samples used to compute stage metrics
+#   start_stage    – optional explicit starting stage id (defaults to first stage)
+#
+# Each entry in `stages` configures a difficulty tier. Important fields:
+#   stage_id / description – identifier and doc string
+#   filter_overrides      – baseline point filtering knobs (min_distance, max_points)
+#   filter_schedule       – optional overrides applied when mean reward ≥ threshold
+#   point_filter          – sampling strategy: cluster / greedy / random / dense
+#   representation        – controls how each image view is presented (image/text ratios)
+#   distractors           – how many unmatched points to inject per image (if enabled)
+#   promotion / demotion  – reward + sample thresholds for moving between stages
+
+
+enable: true              # turn curriculum logic on/off
+metric_window: 128        # rolling window for stage statistics
+start_stage: image_only   # begin from the easy visual-only stage
+
+stages:
+  - stage_id: image_only
+    description: "Start from annotated images only; gradually densify spatial layout."
+    filter_overrides:
+      min_distance: 80     # minimum spacing between selected correspondences (relative pixels)
+      min_points: 3        # ensure at least 3 matches survive filtering
+      max_points: 5        # cap on matches retained for prompts
+    filter_schedule:
+      - threshold: 0.0     # reward threshold → easier layout
+        min_distance: 100
+        min_points: 2
+        max_points: 3
+      - threshold: 0.75    # once reward ≥ 0.75 tighten spacing & allow more points
+        min_distance: 55
+        min_points: 4
+        max_points: 6
+        success_ratio_threshold: 0.7
+        success_reward_threshold: 0.8
+    representation:
+      image1:
+        render_image: true   # show annotated image A
+        include_text: false  # no text table yet
+      image2:
+        render_image: true
+        include_text: false
+    point_filter:
+      mode: cluster           # use DBSCAN clustering for sparsity
+      cluster_eps_scale: 1.0  # larger radius → sparser layouts
+      greedy_spacing: true    # apply greedy spacing after clustering
+    promotion:
+      threshold: 0.87         # promote once mean reward ≥ 0.87
+      min_count: 96           # evaluate after 96 samples
+      use_recent_window: true
+      success_ratio_threshold: 0.7
+      success_reward_threshold: 0.8
+
+  - stage_id: hybrid_one_to_one
+    description: "Add JSON coordinate hints while keeping one-to-one matching."
+    filter_overrides:
+      min_distance: 55
+      min_points: 4
+      max_points: 6
+    representation:
+      image1:
+        render_image: true
+        include_text: true     # mix image + text for view A
+        text_ratio: 0.6        # describe 60% of remaining IDs via text
+        text_header: "Image A (0-1000 scale)."
+      image2:
+        render_image: true
+        include_text: true
+        annotate_ratio: 0.6    # keep 60% visually; rest goes to text table
+        text_ratio: 1.0
+        text_header: "Image B (0-1000 scale)."
+    point_filter:
+      mode: cluster
+      cluster_eps_scale: 0.6   # smaller eps → tighter clusters (harder)
+      greedy_spacing: true
+    promotion:
+      threshold: 0.9
+      min_count: 140
+      use_recent_window: true
+      success_ratio_threshold: 0.7
+      success_reward_threshold: 0.8
+    demotion:
+      threshold: 0.7           # drop back if reward < 0.7
+      min_count: 72
+      use_recent_window: true
+
+  - stage_id: hybrid_multi_to_multi
+    description: "Introduce distractor points on both images and allow null matches."
+    filter_overrides:
+      min_distance: 40
+      min_points: 5
+      max_points: 7
+    representation:
+      image1:
+        render_image: true
+        include_text: true
+        annotate_ratio: 0.7
+        text_ratio: 1.0
+        text_header: "Image A IDs (distractors possible)."
+      image2:
+        render_image: true
+        include_text: true
+        annotate_ratio: 0.7
+        text_ratio: 1.0
+        text_header: "Image B IDs (distractors possible)."
+    point_filter:
+      mode: greedy             # globally sampled for harder dense layouts
+      cluster_eps_scale: 0.4   # ignored in greedy mode, kept for symmetry
+      greedy_spacing: true
+    distractors:
+      enable: true             # inject unmatched IDs to test null outputs
+      mode: sample             # sample / synthetic
+      synthetic_radius: 150
+      min_extra_image1: 1
+      max_extra_image1: 2
+      min_extra_image2: 1
+      max_extra_image2: 2
+    demotion:
+      threshold: 0.62
+      min_count: 90
+      use_recent_window: true

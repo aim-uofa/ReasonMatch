@@ -1,0 +1,177 @@
+# Matching curriculum for ANNO tasks with reusable stage templates
+
+enable: true              # turn curriculum logic on/off
+metric_window: 20480      # rolling window for stage statistics   5*16*8*32
+start_stage: one_to_one   # begin from the easy visual-only stage
+
+stage_library:
+  one_to_one_base:
+    description: "Start from annotated images only; gradually densify spatial layout."
+    filter_overrides:
+      min_distance: 90
+      max_points: 4
+      min_points: 3
+    filter_schedule:
+      - threshold: 1.5
+        min_distance: 80
+        max_points: 6
+        min_points: 4
+      - threshold: 1.6
+        min_distance: 60
+        max_points: 6
+        min_points: 4
+    representation:
+      image1:
+        render_image: true
+        include_text: false
+      image2:
+        render_image: true
+        include_text: false
+    point_filter:
+      mode: cluster
+      cluster_eps_scale: 1.0
+      greedy_spacing: true
+
+  multi_to_multi:
+    description: "Introduce distractor points on both images and allow null matches."
+    filter_overrides:
+      min_distance: 80
+      max_points: 5
+      min_points: 4
+    filter_schedule:
+      - threshold: 1.5
+        min_distance: 70
+        max_points: 6
+        min_points: 4
+      - threshold: 1.6
+        min_distance: 60
+        max_points: 6
+        min_points: 4
+    representation:
+      image1:
+        render_image: true
+        include_text: false
+        annotate_ratio: 1.0
+        text_ratio: 1.0
+        text_header: "<|POINTS_A|>"
+      image2:
+        render_image: true
+        include_text: false
+        annotate_ratio: 1.0
+        text_ratio: 1.0
+        text_header: "<|POINTS_B|>"
+    point_filter:
+      mode: cluster
+      cluster_eps_scale: 0.8
+      greedy_spacing: true
+    distractors:
+      enable: true
+      mode: synthetic
+      synthetic_radius: 120
+      min_extra_image1: 1
+      max_extra_image1: 2
+      min_extra_image2: 1
+      max_extra_image2: 2
+
+  multi_to_multi_dense:
+    description: "Dense layouts with random sampling and distractors."
+    filter_overrides:
+      min_distance: 40
+      max_points: 7
+      min_points: 4
+    representation:
+      image1:
+        render_image: true
+        include_text: false
+        annotate_ratio: 1.0
+        text_ratio: 1.0
+        text_header: "<|POINTS_A|>"
+      image2:
+        render_image: true
+        include_text: false
+        annotate_ratio: 1.0
+        text_ratio: 1.0
+        text_header: "<|POINTS_B|>"
+    point_filter:
+      mode: greedy
+      cluster_eps_scale: 0.8
+      greedy_spacing: true
+    distractors:
+      enable: true
+      mode: synthetic
+      synthetic_radius: 80
+      min_extra_image1: 1
+      max_extra_image1: 3
+      min_extra_image2: 1
+      max_extra_image2: 3
+
+  one_to_multi_single:
+    description: "Single reference on image1 pointing to multiple candidates plus distractors."
+    filter_overrides:
+      min_distance: 60
+      max_points: 2
+      min_points: 1
+    representation:
+      image1:
+        render_image: true
+        include_text: false
+      image2:
+        render_image: true
+        include_text: false
+    point_filter:
+      mode: greedy
+      cluster_eps_scale: 0.8
+      greedy_spacing: true
+    distractors:
+      enable: true
+      mode: synthetic
+      synthetic_radius: 140
+      min_extra_image1: 0
+      max_extra_image1: 0
+      min_extra_image2: 2
+      max_extra_image2: 6
+
+stages:
+  - stage_id: one_to_one
+    description: "Start from annotated images only; gradually densify spatial layout."
+    use: one_to_one_base
+    promotion:
+      threshold: 1.8
+      min_count: 5120
+      use_recent_window: true
+
+  - stage_id: multi_to_multi_easy
+    description: "Introduce distractor points on both images and allow null matches."
+    use: multi_to_multi
+    promotion:
+      threshold: 1.8
+      min_count: 5120
+      use_recent_window: true
+    demotion:
+      threshold: 1.2
+      min_count: 5120
+      use_recent_window: true
+
+  - stage_id: multi_to_multi_hard
+    description: "Dense layouts with random core sampling and distractors."
+    use: multi_to_multi_dense
+    promotion:
+      threshold: 1.8
+      min_count: 5120
+      use_recent_window: true
+    demotion:
+      threshold: 1.2
+      min_count: 5120
+      use_recent_window: true
+
+  - stage_id: one_to_multi
+    description: "Blend dense multi-match prompts with single-reference multiple-choice prompts."
+    aggregate:
+      - use: multi_to_multi_dense
+        weight: 0.6
+      - use: one_to_multi_single
+        weight: 0.4
+    demotion:
+      threshold: 1.2
+      min_count: 5120
+      use_recent_window: true

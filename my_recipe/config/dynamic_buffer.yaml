@@ -1,0 +1,86 @@
+defaults:
+  # Matching curriculum configuration is factored into its own config group.
+  - matching_curriculum@matching_curriculum: ant
+  - _self_
+
+# Dynamic Task Buffer Configuration
+#
+# This buffer enables dynamic switching between matching and grounding tasks
+# based on recent model performance.
+
+# Enable dynamic task switching
+enable: true
+
+# Buffer size: number of recent samples to maintain for performance tracking
+buffer_size: 1024
+
+# Buffer warmup: proportion that must be filled before dynamic curriculum is enabled
+warmup_proportion: 0.5
+
+# Metric to use for task switching decisions
+# Options: "mean_reward", "success_rate", etc.
+task_switch_metric: "mean_reward"
+
+# Performance thresholds for task switching
+# If matching task performance > matching_threshold, switch to harder grounding task
+matching_threshold: 0.9
+
+# If grounding task performance < grounding_threshold, switch back to easier matching task
+grounding_threshold: 0.3
+
+# Minimum number of samples needed before making task switching decisions
+# This prevents premature switching based on insufficient data
+min_samples_for_switch: 1024
+
+# Task selection strategy:
+#   - dynamic: switch based on thresholds above
+#   - matching / grounding: always emit that task (direct task creation)
+task_mode: dynamic
+
+log_file: ${trainer.default_local_dir}/dynamic_buffer.log
+
+# Matching task filtering strategy. These knobs are forwarded to draw_img()/filter_sparse_points.
+matching_filter:
+  # Baseline filter: larger min_distance → easier (fewer overlapping points)
+  min_distance: 40
+  max_points: 6
+  # strategy: static (always use baseline) or adaptive (use schedule below based on mean reward)
+  strategy: adaptive
+  schedule:
+    - threshold: 0.0
+      min_distance: 80
+      max_points: 3
+    - threshold: 0.5
+      min_distance: 55
+      max_points: 5
+    - threshold: 0.8
+      min_distance: 25
+      max_points: 8
+
+# Grounding task point sampling strategy controlling how many correspondences to request.
+grounding_points:
+  min_points: 1
+  max_points: 3
+  strategy: adaptive
+  schedule:
+    - threshold: 0.0
+      min_points: 1
+      max_points: 2
+    - threshold: 0.4
+      min_points: 2
+      max_points: 4
+    - threshold: 0.75
+      min_points: 3
+      max_points: 5
+
+# BufferedDataLoader staging knobs. Disabled by default so existing jobs are unaffected.
+# When enabled, the loader will split the ordered raw dataset into difficulty bins (by overlap rank),
+# shuffle within each bin, and only promote to the next bin once the recent batch rewards exceed
+# the configured threshold.
+buffered_loader:
+  enable_overlap_bins: false          # Turn on the overlap-based stage scheduler.
+  overlap_bin_count: 4                # Number of difficulty bins (from easiest to hardest).
+  promotion_reward_threshold: 1.9     # Recent mean reward needed before advancing to the next bin.
+  promotion_window: 3                 # Number of consecutive batches to average for promotion checks.
+  min_batches_per_bin: 6              # Require at least this many batches before considering promotion.
+  shuffle_within_bin: true            # Reshuffle bin indices whenever they are exhausted.

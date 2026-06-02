@@ -1,0 +1,147 @@
+hydra:
+  searchpath:
+    - file://verl/trainer/config
+    - file://my_recipe/config
+
+defaults:
+  - ppo_trainer
+  - _self_
+
+  # <folder_name>@<field_name>.<field_name>: <yaml_file_name>
+  # actor_rollout_ref.actor: trainer/config/actor/dp_actor.yaml
+  - .@dynamic_buffer: dynamic_buffer.yaml
+
+data:
+  gen_batch_size: ${data.train_batch_size}
+  use_shm: False
+  shuffle: True
+
+  max_pixels: 2000000
+  min_pixels: 10000
+
+  # The field in the dataset where the prompt is located. Default is 'prompt'.
+  prompt_key: prompt
+
+  # The field used to select the reward function (if using different ones per example).
+  reward_fn_key: data_source
+  # Truncate the input_ids or prompt if they exceed max_prompt_length.
+  # Options: 'error', 'left', 'right', 'middle'. Default is 'error'.
+  truncation: error
+  # The field in the multi-modal dataset where the image is located. Default is 'images'.
+  image_key: images
+
+  # The field in the multi-modal dataset where the video is located.
+  video_key: videos
+
+  # Optional: specify a custom dataset class path and name if overriding default loading behavior.
+  custom_cls:
+    # The path to the file containing your customized dataset class. If not specified, pre-implemented dataset will be used.
+    path: my_recipe/mydatasets/__init__.py
+    # The name of the dataset class within the specified file.
+    name: null # PointCDataset, DL3DV, DL3DVG, AnnoRawDataset
+
+actor_rollout_ref:
+  model:
+    # @zhonghao why fused_kernel default to False?
+    use_fused_kernels: False
+
+  actor:
+    # TODO(haibin.lin): switch to fsdp2
+    strategy: fsdp
+
+    freeze_vision_tower: True
+    fsdp_config:
+      fsdp_size: -1
+      model_dtype: fp32 # @zhonghao, new version gets default value of fp32
+      mixed_precision:
+        param_dtype: bf16
+        reduce_dtype: fp32
+        buffer_dtype: fp32
+
+      # strategy: fsdp2
+
+  rollout:
+    name: vllm
+
+judger:
+  enable: False
+
+  model:
+    path: /weights/Qwen2.5-VL-3B-Instruct
+    use_shm: False
+
+  name: vllm
+  dtype: bfloat16
+  enforce_eager: False
+  enable_chunked_prefill: False
+  gpu_memory_utilization: 0.8
+  disable_log_stats: True
+
+  free_cache_engine: True
+  tensor_model_parallel_size: 2
+  max_model_len: 8192
+  prompt_length: 6000
+  response_length: 4096 # max_length ?
+  max_num_batched_tokens: 65536
+  mode: sync
+  calculate_log_prob: False
+  val_kwargs:
+    top_k: 1
+    top_p: 1.0
+    temperature: 1.0
+
+
+reward_model:
+  reward_manager: my_dapo
+  launch_reward_fn_async: True # force False for neat two stage phase
+
+  overlong_buffer: 
+    enable: False # We try to avoid forgetting to set enable
+    len: 0
+    penalty_factor: 0.0
+    log: False
+
+  reward_kwargs:
+    rollout_logging:
+      enable: True
+      group_size: ${actor_rollout_ref.rollout.n}
+      dir: ./debug_output/
+      save_test: True
+      save_images: True
+      image_format: jpg
+      max_samples_per_step: 1
+      overwrite: True
+      record_filename: record.json
+    reason_consistency:
+      enable: False
+      base_url: http://127.0.0.1:8000/v1
+      api_key: EMPTY
+      model: qwen3_30b_a3b_inst
+      timeout: 30
+      max_concurrency: 16
+      max_retries: 3
+      default_score: 0.0
+      temperature: 0.6
+      max_tokens: 64
+      score_key: score
+
+# custom reward function definition
+custom_reward_function:
+
+  # The path to the file containing your customized reward function.
+  # If not specified, pre-implemented reward functions will be used.
+  path: my_recipe/reward_fn/__init__.py
+
+  # The name of the reward function within the specified file. Default is 'compute_score'.
+  name: compute_score
+
+algorithm:
+  filter_groups:
+    _target_: verl.trainer.config.FilterGroupsConfig
+    enable: False # We try to avoid forgetting to set enable
+    metric: null # acc / score / seq_reward / seq_final_reward / ...
+    max_num_gen_batches: 0 # Non-positive values mean no upper limit
+
+trainer:
+  project_name: verl-dapo
+  val_before_train: False

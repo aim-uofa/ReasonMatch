@@ -1,0 +1,5 @@
+[
+    "/abs/path/to/your/lmdb_dataset_1",
+    "/abs/path/to/your/lmdb_dataset_2",
+    "/abs/path/to/your/lmdb_dataset_3"
+]

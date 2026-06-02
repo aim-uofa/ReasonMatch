@@ -1,0 +1,82 @@
+# Aggressive curriculum that stresses dense scenes and many distractors.
+# Best used after the policy already solves matching reliably.
+
+
+enable: true
+metric_window: 160
+start_stage: hybrid_multi_to_multi
+
+stages:
+  - stage_id: hybrid_multi_to_multi
+    description: "Begin with distractor-rich hybrid samples."
+    filter_overrides:
+      min_distance: 38
+      max_points: 7
+    filter_schedule:
+      - threshold: 0.0
+        min_distance: 48
+        max_points: 6
+      - threshold: 0.82
+        min_distance: 32
+        max_points: 9
+        success_ratio_threshold: 0.7
+        success_reward_threshold: 0.85
+    representation:
+      image1:
+        render_image: true
+        include_text: true
+        annotate_ratio: 0.6
+        text_ratio: 1.0
+        text_header: "View A IDs (null if unmatched)."
+      image2:
+        render_image: true
+        include_text: true
+        annotate_ratio: 0.6
+        text_ratio: 1.0
+        text_header: "View B IDs (null if unmatched)."
+    distractors:
+      enable: true
+      min_extra_image1: 2
+      max_extra_image1: 4
+      min_extra_image2: 2
+      max_extra_image2: 4
+    promotion:
+      threshold: 0.93
+      min_count: 200
+      use_recent_window: true
+      success_ratio_threshold: 0.7
+      success_reward_threshold: 0.85
+    demotion:
+      threshold: 0.72
+      min_count: 120
+      use_recent_window: true
+
+  - stage_id: distractor_cluster_breakdown
+    description: "Force attention to tight clusters with heavy distractors."
+    filter_overrides:
+      min_distance: 25
+      max_points: 10
+    representation:
+      image1:
+        render_image: true
+        include_text: true
+        annotate_ratio: 0.7
+        text_ratio: 1.0
+        text_header: "Clustered View A"
+      image2:
+        render_image: true
+        include_text: true
+        annotate_ratio: 0.7
+        text_ratio: 1.0
+        text_header: "Clustered View B"
+    distractors:
+      enable: true
+      min_extra_image1: 3
+      max_extra_image1: 5
+      min_extra_image2: 3
+      max_extra_image2: 5
+    promotion: null
+    demotion:
+      threshold: 0.74
+      min_count: 150
+      use_recent_window: true

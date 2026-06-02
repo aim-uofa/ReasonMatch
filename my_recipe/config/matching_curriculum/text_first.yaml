@@ -1,0 +1,91 @@
+# Curriculum that emphasizes early transition to coordinate-text inputs.
+# Useful when you want the policy to leverage textual coordinates sooner.
+
+
+enable: true
+metric_window: 96
+start_stage: hybrid_one_to_one
+
+stages:
+  - stage_id: hybrid_one_to_one
+    description: "Kick off with mixed visual + JSON inputs."
+    filter_overrides:
+      min_distance: 65
+      max_points: 5
+    representation:
+      image1:
+        render_image: true
+        include_text: true
+        annotate_ratio: 0.5
+        text_ratio: 1.0
+        text_header: "Primary view (0-1000)."
+      image2:
+        render_image: true
+        include_text: true
+        annotate_ratio: 0.4
+        text_ratio: 1.0
+        text_header: "Secondary view (0-1000)."
+    promotion:
+      threshold: 0.88
+      min_count: 120
+      use_recent_window: true
+      success_ratio_threshold: 0.7
+      success_reward_threshold: 0.8
+    demotion: null
+
+  - stage_id: hybrid_multi_to_multi
+    description: "Introduce distractors once the model handles text prompts well."
+    filter_overrides:
+      min_distance: 42
+      max_points: 7
+    representation:
+      image1:
+        render_image: true
+        include_text: true
+        annotate_ratio: 0.5
+        text_ratio: 1.0
+        text_header: "Image A IDs inc. distractors"
+      image2:
+        render_image: true
+        include_text: true
+        annotate_ratio: 0.5
+        text_ratio: 1.0
+        text_header: "Image B IDs inc. distractors"
+    distractors:
+      enable: true
+      min_extra_image1: 1
+      max_extra_image1: 3
+      min_extra_image2: 1
+      max_extra_image2: 2
+    promotion:
+      threshold: 0.92
+      min_count: 160
+      use_recent_window: true
+      success_ratio_threshold: 0.7
+      success_reward_threshold: 0.8
+    demotion:
+      threshold: 0.68
+      min_count: 90
+      use_recent_window: true
+
+  - stage_id: text_only_diagnostics
+    description: "Optional final stage that removes images to test pure-text reasoning."
+    representation:
+      image1:
+        render_image: false
+        include_text: true
+        text_ratio: 1.0
+        text_header: "Image A coordinates only"
+      image2:
+        render_image: false
+        include_text: true
+        text_ratio: 1.0
+        text_header: "Image B coordinates only"
+    filter_overrides:
+      min_distance: 35
+      max_points: 8
+    promotion: null
+    demotion:
+      threshold: 0.7
+      min_count: 80
+      use_recent_window: true
