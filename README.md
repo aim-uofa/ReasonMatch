@@ -20,7 +20,7 @@ Hao Zhong\*, Muzhi Zhu\*, Shenyan Zeng\*, Anzhou Li, Cong Chen, Hua Geng, Duocha
 Zhejiang University · Ant Group · Westlake University
 
 - **Project page:** [https://aim-uofa.github.io/reasonmatch/](https://aim-uofa.github.io/reasonmatch/)
-- **arXiv:** to be posted
+- **arXiv:** [https://arxiv.org/abs/2606.03577](https://arxiv.org/abs/2606.03577)
 - **Dataset:** [`jxzh2020/ReasonMatchBench`](https://www.modelscope.cn/datasets/jxzh2020/ReasonMatchBench) on ModelScope
 - **Pretrained weights:** to be announced
 
