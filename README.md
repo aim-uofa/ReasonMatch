@@ -5,7 +5,7 @@ ReasonMatch-Bench is a benchmark and training recipe for evaluating visual reaso
 - A ReasonMatch-Bench evaluation suite for in-domain visual matching tasks.
 - An out-of-domain rebuttal evaluation suite.
 - A veRL-based reinforcement learning training recipe for multimodal models.
-- Public dataset download instructions through ModelScope.
+- Public dataset download instructions through Hugging Face and ModelScope.
 
 The codebase vendors veRL under `verl/`. Project-specific code lives under `my_recipe/`, and benchmark/evaluation code lives under `evaluate/`.
 
@@ -21,7 +21,8 @@ Zhejiang University · Ant Group · Westlake University
 
 - **Project page:** [https://aim-uofa.github.io/reasonmatch/](https://aim-uofa.github.io/reasonmatch/)
 - **arXiv:** [https://arxiv.org/abs/2606.03577](https://arxiv.org/abs/2606.03577)
-- **Dataset:** [`jxzh2020/ReasonMatchBench`](https://www.modelscope.cn/datasets/jxzh2020/ReasonMatchBench) on ModelScope
+- **Dataset:** [`ReasonMatch/ReasonMatch`](https://huggingface.co/datasets/ReasonMatch/ReasonMatch) on Hugging Face
+- **Dataset mirror:** [`jxzh2020/ReasonMatchBench`](https://www.modelscope.cn/datasets/jxzh2020/ReasonMatchBench) on ModelScope
 - **Pretrained weights:** to be announced
 
 Wide-baseline matching (WBM) requires integrating geometric understanding, viewpoint changes, fine-grained perception, and occlusion reasoning, making it a challenging testbed for spatial reasoning in multimodal large language models (MLLMs). We introduce **ReasonMatch-Bench**, a benchmark stratified by viewpoint displacement and matching granularity, and **Dynamic Correspondence Reinforcement Learning (DCRL)** for verifiable wide-baseline matching training without explicit chain-of-thought supervision.
@@ -88,7 +89,22 @@ The `vllm` extra follows the pinned version in `setup.py`. If you need to reprod
 
 ## Dataset Preparation
 
-The public evaluation dataset is hosted on ModelScope at [`jxzh2020/ReasonMatchBench`](https://www.modelscope.cn/datasets/jxzh2020/ReasonMatchBench).
+The public evaluation dataset is hosted on Hugging Face at [`ReasonMatch/ReasonMatch`](https://huggingface.co/datasets/ReasonMatch/ReasonMatch). A ModelScope mirror is also available at [`jxzh2020/ReasonMatchBench`](https://www.modelscope.cn/datasets/jxzh2020/ReasonMatchBench).
+
+```bash
+dataset_path=/your/absolute/path/to/datasets
+dataset_repo=ReasonMatch/ReasonMatch
+
+huggingface-cli download "${dataset_repo}" \
+    --repo-type dataset \
+    --include 'reasonmatch_bench.tar.gz' 'ood_dataset.tar.gz' \
+    --local-dir "${dataset_path}"
+
+tar -xzf "${dataset_path}/reasonmatch_bench.tar.gz" -C "${dataset_path}"
+tar -xzf "${dataset_path}/ood_dataset.tar.gz"       -C "${dataset_path}"
+```
+
+Alternatively, download from the ModelScope mirror:
 
 ```bash
 dataset_path=/your/absolute/path/to/datasets
@@ -97,9 +113,6 @@ dataset_repo=jxzh2020/ReasonMatchBench
 modelscope download --repo-type dataset "${dataset_repo}" \
     --include 'reasonmatch_bench.tar.gz' 'ood_dataset.tar.gz' \
     --local_dir "${dataset_path}"
-
-tar -xzf "${dataset_path}/reasonmatch_bench.tar.gz" -C "${dataset_path}"
-tar -xzf "${dataset_path}/ood_dataset.tar.gz"       -C "${dataset_path}"
 ```
 
 After extraction:
