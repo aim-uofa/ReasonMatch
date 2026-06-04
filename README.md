@@ -1,5 +1,9 @@
 # ReasonMatch-Bench
 
+<p align="center">
+  <img src="assets/social_preview.png" alt="ReasonMatch-Bench social preview" width="100%">
+</p>
+
 ReasonMatch-Bench is a benchmark and training recipe for evaluating visual reasoning over point correspondences. The repository contains:
 
 - A ReasonMatch-Bench evaluation suite for in-domain visual matching tasks.
